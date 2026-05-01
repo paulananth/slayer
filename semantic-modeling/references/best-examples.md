@@ -115,3 +115,27 @@ Expected output:
 - Legacy join types removed when converting to Snowflake Semantic Views.
 - Custom instructions separated from YAML.
 
+## Example 6: Complex Fixture for Regression Testing
+
+Local artifacts:
+
+- `examples/complex-financial-model/schema.sql`
+- `examples/complex-financial-model/semantic-view.yaml`
+- `examples/complex-financial-model/cortex-instructions.sql`
+- `examples/complex-financial-model/ontology-alignment.md`
+- `tests/test_semantic_layer_artifacts.py`
+
+What it tests:
+
+- Snowflake tables plus analytic views for instruments, positions, trades, legal entities, market prices, FX rates, and risk exposures.
+- Role-playing party relationships: issuer, obligor, custodian, buyer, seller, broker, and counterparty.
+- Multiple date bases: position as-of date, exposure date, trade date, settlement date, issue date, and maturity date.
+- Non-additive metrics for point-in-time market value and exposure.
+- FIBO-style ontology alignment notes with confidence and boundary rules.
+- Cortex Analyst `AI_SQL_GENERATION` and `AI_QUESTION_CATEGORIZATION` guidance.
+
+Run:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t . -q
+```

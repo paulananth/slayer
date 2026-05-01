@@ -1,0 +1,453 @@
+name: financial_risk_semantic_view
+description: "Financial risk and holdings semantic view for positions, instruments, trades, market prices, counterparties, and risk exposure. Descriptions and synonyms are aligned to FIBO-style financial concepts where the warehouse schema supports them."
+
+tables:
+  - name: positions
+    description: "Position snapshot records at account, portfolio, instrument, custodian, and as-of-date grain."
+    base_table:
+      database: ANALYTICS
+      schema: MART_FINANCE
+      table: VW_POSITION_VALUATION
+    dimensions:
+      - name: position_id
+        description: "Source position identifier."
+        expr: POSITION_ID
+        data_type: VARCHAR
+        access_modifier: private_access
+      - name: account_id
+        synonyms: ["account", "investment account"]
+        description: "Investment account holding the position."
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: portfolio_id
+        synonyms: ["portfolio", "book"]
+        description: "Portfolio or book in which the position is held."
+        expr: PORTFOLIO_ID
+        data_type: VARCHAR
+      - name: instrument_id
+        synonyms: ["security id", "financial instrument id"]
+        description: "Instrument identifier for the held financial instrument."
+        expr: INSTRUMENT_ID
+        data_type: VARCHAR
+      - name: instrument_type
+        synonyms: ["security type", "asset class", "product type"]
+        description: "Financial instrument type, such as bond, equity, loan, swap, future, or option."
+        expr: INSTRUMENT_TYPE
+        data_type: VARCHAR
+      - name: issuer_lei
+        synonyms: ["issuer LEI", "issuer legal entity identifier"]
+        description: "Legal Entity Identifier of the issuer associated with the held instrument."
+        expr: ISSUER_LEI
+        data_type: VARCHAR
+      - name: custodian_lei
+        synonyms: ["custodian", "custodian legal entity identifier"]
+        description: "Legal Entity Identifier of the custodian holding the position."
+        expr: CUSTODIAN_LEI
+        data_type: VARCHAR
+    time_dimensions:
+      - name: as_of_date
+        synonyms: ["position date", "snapshot date", "valuation date"]
+        description: "Date of the position snapshot. Position balances and market values should be analyzed at a single as-of date or by period-end logic."
+        expr: AS_OF_DATE
+        data_type: DATE
+    facts:
+      - name: quantity
+        description: "Position quantity at the as-of date."
+        expr: QUANTITY
+        data_type: NUMBER
+      - name: market_value_usd
+        synonyms: ["market value", "position value", "valuation"]
+        description: "Point-in-time market value in USD at the as-of date."
+        expr: MARKET_VALUE_USD
+        data_type: NUMBER
+      - name: book_value_local
+        description: "Point-in-time book value in local instrument currency."
+        expr: BOOK_VALUE_LOCAL
+        data_type: NUMBER
+      - name: accrued_interest_usd
+        description: "Accrued interest in USD at the as-of date."
+        expr: ACCRUED_INTEREST_USD
+        data_type: NUMBER
+    metrics:
+      - name: total_market_value_usd
+        synonyms: ["market value", "AUM", "holdings value"]
+        description: "Total market value in USD for positions at a selected as-of date. Do not sum across multiple as-of dates."
+        expr: SUM(market_value_usd)
+        non_additive_dimensions: ["as_of_date"]
+      - name: total_book_value_local
+        synonyms: ["book value"]
+        description: "Total book value in local currency. Do not combine currencies without an explicit conversion basis."
+        expr: SUM(book_value_local)
+      - name: position_count
+        synonyms: ["number of positions"]
+        description: "Count of position snapshot rows."
+        expr: COUNT(*)
+    filters:
+      - name: positive_market_value
+        description: "Positions with positive USD market value."
+        expr: "MARKET_VALUE_USD > 0"
+
+  - name: instruments
+    description: "Financial instrument master data enriched with issuer and obligor context."
+    base_table:
+      database: ANALYTICS
+      schema: MART_FINANCE
+      table: VW_INSTRUMENT_ENRICHED
+    dimensions:
+      - name: instrument_id
+        synonyms: ["security id", "financial instrument id"]
+        description: "Identifier of a financial instrument."
+        expr: INSTRUMENT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: isin
+        synonyms: ["international securities identification number"]
+        description: "International Securities Identification Number."
+        expr: ISIN
+        data_type: VARCHAR
+      - name: cusip
+        description: "CUSIP security identifier."
+        expr: CUSIP
+        data_type: VARCHAR
+      - name: instrument_type
+        synonyms: ["security type", "asset class"]
+        description: "Financial instrument classification."
+        expr: INSTRUMENT_TYPE
+        data_type: VARCHAR
+      - name: issuer_lei
+        synonyms: ["issuer", "issuer LEI"]
+        description: "LEI of the issuer. Do not treat issuer as counterparty unless a relationship explicitly supports that interpretation."
+        expr: ISSUER_LEI
+        data_type: VARCHAR
+      - name: issuer_name
+        description: "Legal name of the issuer."
+        expr: ISSUER_NAME
+        data_type: VARCHAR
+      - name: obligor_lei
+        synonyms: ["obligor"]
+        description: "LEI of the obligor where the instrument has a distinct obligor."
+        expr: OBLIGOR_LEI
+        data_type: VARCHAR
+      - name: currency_code
+        synonyms: ["currency", "denomination currency"]
+        description: "Currency in which the instrument is denominated."
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+    time_dimensions:
+      - name: issue_date
+        description: "Date the instrument was issued."
+        expr: ISSUE_DATE
+        data_type: DATE
+      - name: maturity_date
+        synonyms: ["maturity"]
+        description: "Date on which the instrument matures."
+        expr: MATURITY_DATE
+        data_type: DATE
+    facts:
+      - name: coupon_rate
+        synonyms: ["coupon"]
+        description: "Contractual coupon rate. Do not use as yield unless the user explicitly asks for coupon."
+        expr: COUPON_RATE
+        data_type: NUMBER
+      - name: days_to_maturity
+        description: "Days from current date to maturity date."
+        expr: DAYS_TO_MATURITY
+        data_type: NUMBER
+
+  - name: legal_entities
+    description: "Legal entities such as issuers, obligors, custodians, counterparties, buyers, sellers, and brokers."
+    base_table:
+      database: ANALYTICS
+      schema: MART_FINANCE
+      table: LEGAL_ENTITY
+    dimensions:
+      - name: lei
+        synonyms: ["LEI", "legal entity identifier"]
+        description: "Legal Entity Identifier. Treat as a business identifier for legal entities when present."
+        expr: LEI
+        data_type: VARCHAR
+        unique: true
+      - name: legal_name
+        synonyms: ["entity name", "legal entity name"]
+        description: "Legal name of the entity."
+        expr: LEGAL_NAME
+        data_type: VARCHAR
+      - name: jurisdiction
+        description: "Jurisdiction associated with the legal entity."
+        expr: JURISDICTION
+        data_type: VARCHAR
+      - name: entity_status
+        description: "Registration or business status of the legal entity."
+        expr: ENTITY_STATUS
+        data_type: VARCHAR
+      - name: entity_type
+        description: "Type of legal entity."
+        expr: ENTITY_TYPE
+        data_type: VARCHAR
+    time_dimensions:
+      - name: effective_from_date
+        description: "Start of the effective period for the legal entity record."
+        expr: EFFECTIVE_FROM_DATE
+        data_type: DATE
+      - name: effective_to_date
+        description: "End of the effective period for the legal entity record."
+        expr: EFFECTIVE_TO_DATE
+        data_type: DATE
+
+  - name: trades
+    description: "Trade lifecycle records with role-playing legal entities and separate trade and settlement date bases."
+    base_table:
+      database: ANALYTICS
+      schema: MART_FINANCE
+      table: VW_TRADE_LIFECYCLE
+    dimensions:
+      - name: trade_id
+        description: "Trade identifier."
+        expr: TRADE_ID
+        data_type: VARCHAR
+        unique: true
+      - name: instrument_id
+        description: "Instrument traded."
+        expr: INSTRUMENT_ID
+        data_type: VARCHAR
+      - name: buyer_lei
+        description: "LEI of the buyer role in the trade."
+        expr: BUYER_LEI
+        data_type: VARCHAR
+      - name: seller_lei
+        description: "LEI of the seller role in the trade."
+        expr: SELLER_LEI
+        data_type: VARCHAR
+      - name: broker_lei
+        description: "LEI of the broker role in the trade."
+        expr: BROKER_LEI
+        data_type: VARCHAR
+      - name: counterparty_lei
+        description: "LEI of the trade counterparty."
+        expr: COUNTERPARTY_LEI
+        data_type: VARCHAR
+      - name: trade_status
+        synonyms: ["status"]
+        description: "Lifecycle status of the trade."
+        expr: TRADE_STATUS
+        data_type: VARCHAR
+      - name: side
+        description: "Buy or sell side indicator."
+        expr: SIDE
+        data_type: VARCHAR
+    time_dimensions:
+      - name: trade_date
+        description: "Date the trade was executed. Use as the default trade date basis."
+        expr: TRADE_DATE
+        data_type: DATE
+      - name: settlement_date
+        description: "Date the trade is expected or completed to settle."
+        expr: SETTLEMENT_DATE
+        data_type: DATE
+    facts:
+      - name: trade_quantity
+        description: "Trade quantity."
+        expr: QUANTITY
+        data_type: NUMBER
+      - name: trade_price
+        description: "Trade execution price. Do not average unless the requested question explicitly asks for average trade price."
+        expr: PRICE
+        data_type: NUMBER
+      - name: notional_amount_usd
+        synonyms: ["notional", "trade notional"]
+        description: "Trade notional amount in USD."
+        expr: NOTIONAL_AMOUNT_USD
+        data_type: NUMBER
+      - name: commission_usd
+        description: "Trade commission in USD."
+        expr: COMMISSION_USD
+        data_type: NUMBER
+    metrics:
+      - name: trade_count
+        description: "Count of trades."
+        expr: COUNT(*)
+      - name: total_trade_notional_usd
+        synonyms: ["notional", "traded notional"]
+        description: "Total trade notional amount in USD."
+        expr: SUM(notional_amount_usd)
+      - name: total_commission_usd
+        description: "Total trade commission in USD."
+        expr: SUM(commission_usd)
+    filters:
+      - name: settled_trades
+        description: "Trades that are settled."
+        expr: "TRADE_STATUS = 'SETTLED'"
+
+  - name: risk_exposures
+    description: "Risk exposure snapshots by counterparty, instrument, exposure date, risk model, and exposure type."
+    base_table:
+      database: ANALYTICS
+      schema: MART_FINANCE
+      table: VW_EXPOSURE_BY_COUNTERPARTY
+    dimensions:
+      - name: exposure_id
+        description: "Risk exposure record identifier."
+        expr: EXPOSURE_ID
+        data_type: VARCHAR
+        access_modifier: private_access
+      - name: instrument_id
+        description: "Instrument associated with the exposure."
+        expr: INSTRUMENT_ID
+        data_type: VARCHAR
+      - name: counterparty_lei
+        synonyms: ["counterparty", "counterparty LEI"]
+        description: "Legal Entity Identifier of the counterparty associated with the exposure."
+        expr: COUNTERPARTY_LEI
+        data_type: VARCHAR
+      - name: exposure_type
+        description: "Type of exposure, such as current exposure, potential future exposure, or issuer exposure."
+        expr: EXPOSURE_TYPE
+        data_type: VARCHAR
+      - name: credit_rating
+        description: "Credit rating used by the risk model."
+        expr: CREDIT_RATING
+        data_type: VARCHAR
+      - name: risk_model_version
+        description: "Risk model version used to calculate the exposure and VaR fields."
+        expr: RISK_MODEL_VERSION
+        data_type: VARCHAR
+    time_dimensions:
+      - name: exposure_date
+        synonyms: ["risk date", "as of date"]
+        description: "Date on which the exposure was calculated."
+        expr: EXPOSURE_DATE
+        data_type: DATE
+    facts:
+      - name: exposure_amount_usd
+        synonyms: ["exposure"]
+        description: "Exposure amount in USD for the exposure date."
+        expr: EXPOSURE_AMOUNT_USD
+        data_type: NUMBER
+      - name: var_95_1d_usd
+        synonyms: ["VaR", "value at risk"]
+        description: "One-day 95 percent value-at-risk in USD."
+        expr: VAR_95_1D_USD
+        data_type: NUMBER
+      - name: duration_years
+        description: "Duration in years associated with the exposure."
+        expr: DURATION_YEARS
+        data_type: NUMBER
+    metrics:
+      - name: total_exposure_amount_usd
+        synonyms: ["total exposure", "risk exposure"]
+        description: "Total exposure amount in USD at a selected exposure date. Do not sum across exposure dates unless the question asks for a time-series total by date."
+        expr: SUM(exposure_amount_usd)
+        non_additive_dimensions: ["exposure_date"]
+      - name: total_var_95_1d_usd
+        synonyms: ["total VaR"]
+        description: "Total one-day 95 percent value-at-risk in USD at a selected exposure date."
+        expr: SUM(var_95_1d_usd)
+        non_additive_dimensions: ["exposure_date"]
+
+relationships:
+  - name: positions_to_instruments
+    left_table: positions
+    right_table: instruments
+    relationship_columns:
+      - left_column: instrument_id
+        right_column: instrument_id
+  - name: positions_to_custodians
+    left_table: positions
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: custodian_lei
+        right_column: lei
+  - name: instruments_to_issuers
+    left_table: instruments
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: issuer_lei
+        right_column: lei
+  - name: instruments_to_obligors
+    left_table: instruments
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: obligor_lei
+        right_column: lei
+  - name: trades_to_instruments
+    left_table: trades
+    right_table: instruments
+    relationship_columns:
+      - left_column: instrument_id
+        right_column: instrument_id
+  - name: trades_to_buyers
+    left_table: trades
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: buyer_lei
+        right_column: lei
+  - name: trades_to_sellers
+    left_table: trades
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: seller_lei
+        right_column: lei
+  - name: trades_to_brokers
+    left_table: trades
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: broker_lei
+        right_column: lei
+  - name: trades_to_counterparties
+    left_table: trades
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: counterparty_lei
+        right_column: lei
+  - name: exposures_to_instruments
+    left_table: risk_exposures
+    right_table: instruments
+    relationship_columns:
+      - left_column: instrument_id
+        right_column: instrument_id
+  - name: exposures_to_counterparties
+    left_table: risk_exposures
+    right_table: legal_entities
+    relationship_columns:
+      - left_column: counterparty_lei
+        right_column: lei
+
+metrics:
+  - name: exposure_to_market_value_ratio
+    description: "Total risk exposure divided by total position market value. Use only when exposure date and position as-of date are aligned."
+    expr: risk_exposures.total_exposure_amount_usd / NULLIF(positions.total_market_value_usd, 0)
+    access_modifier: public_access
+
+verified_queries:
+  - name: market_value_by_issuer
+    question: "What is total market value by issuer for the latest as-of date?"
+    sql: |
+      SELECT
+        instruments.issuer_name,
+        positions.total_market_value_usd
+      FROM financial_risk_semantic_view
+      WHERE positions.as_of_date = (SELECT MAX(positions.as_of_date) FROM financial_risk_semantic_view)
+      GROUP BY instruments.issuer_name
+      ORDER BY positions.total_market_value_usd DESC
+      LIMIT 10
+    use_as_onboarding_question: true
+  - name: exposure_by_counterparty
+    question: "Which counterparties have the largest exposure on a selected exposure date?"
+    sql: |
+      SELECT
+        legal_entities.legal_name,
+        risk_exposures.total_exposure_amount_usd
+      FROM financial_risk_semantic_view
+      GROUP BY legal_entities.legal_name
+      ORDER BY risk_exposures.total_exposure_amount_usd DESC
+      LIMIT 10
+  - name: trade_notional_by_settlement_status
+    question: "What is total trade notional by trade status using trade date?"
+    sql: |
+      SELECT
+        trades.trade_status,
+        trades.total_trade_notional_usd
+      FROM financial_risk_semantic_view
+      GROUP BY trades.trade_status
+      ORDER BY trades.total_trade_notional_usd DESC
+
