@@ -124,6 +124,8 @@ Local artifacts:
 - `examples/complex-financial-model/cortex-instructions.sql`
 - `examples/complex-financial-model/ontology-alignment.md`
 - `tests/test_semantic_layer_artifacts.py`
+- `semantic-modeling/references/sql-generation-guardrails.md`
+- `semantic-modeling/assets/templates/semantic-sql-request.md`
 
 What it tests:
 
@@ -133,6 +135,7 @@ What it tests:
 - Non-additive metrics for point-in-time market value and exposure.
 - FIBO-style ontology alignment notes with confidence and boundary rules.
 - Cortex Analyst `AI_SQL_GENERATION` and `AI_QUESTION_CATEGORIZATION` guidance.
+- Semantic-model-to-Snowflake-SQL guardrails.
 
 Run:
 

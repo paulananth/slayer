@@ -9,6 +9,8 @@ SCHEMA_SQL = EXAMPLE / "schema.sql"
 SEMANTIC_YAML = EXAMPLE / "semantic-view.yaml"
 CORTEX_SQL = EXAMPLE / "cortex-instructions.sql"
 ONTOLOGY = EXAMPLE / "ontology-alignment.md"
+GUARDRAILS = ROOT / "semantic-modeling" / "references" / "sql-generation-guardrails.md"
+SQL_PROMPT_TEMPLATE = ROOT / "semantic-modeling" / "assets" / "templates" / "semantic-sql-request.md"
 
 
 def read(path: Path) -> str:
@@ -112,6 +114,33 @@ class SemanticLayerArtifactTests(unittest.TestCase):
 
         self.assertIn("Physical joins still use warehouse columns", ontology)
         self.assertIn("Confidence is lower", ontology)
+
+    def test_sql_generation_guardrails_are_documented(self):
+        guardrails = read(GUARDRAILS)
+
+        for required in [
+            "Use only modeled metrics",
+            "Do not invent a metric",
+            "Do not create a join path",
+            "Do not silently pick among multiple date fields",
+            "Do not sum non-additive values across dates",
+            "Bridge and Grouping Tables",
+            "allocation_percent",
+            "Semantic mapping",
+        ]:
+            self.assertIn(required, guardrails)
+
+    def test_semantic_sql_prompt_template_requires_clarification(self):
+        template = read(SQL_PROMPT_TEMPLATE)
+
+        for required in [
+            "Use $semantic-modeling",
+            "Do not invent metrics, joins, filters, ontology mappings, or date defaults.",
+            "ask for clarification instead of writing unsafe SQL",
+            "apply modeled allocation, effective-date filters, or distinct logic",
+            "Provide a semantic mapping summary before the SQL.",
+        ]:
+            self.assertIn(required, template)
 
 
 if __name__ == "__main__":

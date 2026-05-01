@@ -18,7 +18,8 @@ Snowflake Semantic Views are the default target. Treat legacy Cortex Analyst sem
 3. Read `references/snowflake-semantic-views.md` before emitting Snowflake YAML or SQL.
 4. For financial concepts, read `references/fibo-ontology-alignment.md` before naming entities, metrics, relationships, or prompts.
 5. Read `references/cortex-analyst-prompting.md` before writing custom instructions, synonyms, descriptions, or verified queries.
-6. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
+6. For semantic-model-to-SQL requests, read `references/sql-generation-guardrails.md` before writing Snowflake SQL.
+7. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
 
 ## Required Output
 
@@ -28,6 +29,7 @@ For a table-to-Snowflake conversion, produce these sections unless the user asks
 - **Ontology Alignment**: FIBO class/property mappings, definitions used, unresolved concept ambiguity, and file paths when FIBO evidence was available.
 - **Cortex Analyst Instructions**: custom instructions as SQL or copy-ready text, separate from YAML.
 - **Verified Queries**: representative natural-language questions with SQL that proves expected usage.
+- **Generated SQL**: Snowflake-compatible SQL only when grounded in modeled metrics, dimensions, filters, relationships, and assumptions.
 - **Assumptions**: grain, keys, relationships, metric definitions, time zones, filters, and data gaps that were inferred.
 - **Validation**: the Snowflake verify-only command to run when a Snowflake connection is available.
 
@@ -129,12 +131,26 @@ SELECT SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML(
 
 If validation fails, fix the YAML first, then re-run verification. Do not execute create/replace DDL unless the user explicitly asks.
 
+### 8. Generate Snowflake SQL From a Semantic Model
+
+When the user asks for `Data Model -> Semantic Model -> Snowflake SQL`, generate SQL only after mapping the question to modeled fields:
+
+- Use only declared logical tables, dimensions, time dimensions, facts, metrics, filters, and relationships.
+- Do not invent metrics, joins, filters, ontology mappings, or date defaults.
+- If a metric, dimension, relationship path, date basis, grouping type, or allocation rule is missing, ask for clarification or state the model gap.
+- For balances, AUM, exposure, prices, rates, ratios, and snapshot values, require a date basis or use an explicit semantic-model default.
+- For bridge/grouping tables, prevent double-counting with modeled allocation, effective-date filters, or distinct logic.
+- Include a short mapping summary before SQL for non-trivial queries.
+
+Read `references/sql-generation-guardrails.md` and use `assets/templates/semantic-sql-request.md` for reusable prompts.
+
 ## References
 
 - Snowflake target format: `references/snowflake-semantic-views.md`
 - Conversion rules: `references/conversion-workflow.md`
 - FIBO ontology alignment: `references/fibo-ontology-alignment.md`
 - Cortex Analyst instructions: `references/cortex-analyst-prompting.md`
+- SQL generation guardrails: `references/sql-generation-guardrails.md`
 - Cross-platform patterns: `references/platform-patterns.md`
 - Best practices: `references/best-practices.md`
 - Strong examples: `references/best-examples.md`

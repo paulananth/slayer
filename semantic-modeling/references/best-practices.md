@@ -150,3 +150,16 @@ SELECT SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML(
 
 Do not execute create/replace DDL unless the user explicitly asks.
 
+## Generate SQL Through the Semantic Model
+
+When generating Snowflake SQL from a question, map the question to the semantic model before writing SQL.
+
+Required guardrails:
+
+- Use modeled metrics and dimensions instead of raw column guesses.
+- Use modeled relationships only.
+- Ask for missing date basis on AUM, balance, exposure, price, rate, and snapshot metrics.
+- Apply bridge allocation and effective-date filters for grouping tables.
+- Refuse or explain unavailable data when the semantic model does not contain the requested field or relationship.
+
+For reusable prompts, use `assets/templates/semantic-sql-request.md`.
