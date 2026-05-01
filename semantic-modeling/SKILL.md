@@ -17,16 +17,17 @@ Snowflake Semantic Views are the default target. Treat legacy Cortex Analyst sem
 2. Read `references/conversion-workflow.md` before classifying fields or proposing YAML.
 3. Read `references/snowflake-semantic-views.md` before emitting Snowflake YAML or SQL.
 4. For financial concepts, read `references/fibo-ontology-alignment.md` before naming entities, metrics, relationships, or prompts.
-5. Read `references/cortex-analyst-prompting.md` before writing custom instructions, synonyms, descriptions, or verified queries.
-6. For semantic-model-to-SQL requests, read `references/sql-generation-guardrails.md` before writing Snowflake SQL.
-7. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
+5. For Neptune/GraphRAG ontology context, read `references/neptune-ontology-layer.md` before adding graph-derived definitions, synonyms, or disambiguation.
+6. Read `references/cortex-analyst-prompting.md` before writing custom instructions, synonyms, descriptions, or verified queries.
+7. For semantic-model-to-SQL requests, read `references/sql-generation-guardrails.md` before writing Snowflake SQL.
+8. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
 
 ## Required Output
 
 For a table-to-Snowflake conversion, produce these sections unless the user asks for a narrower result:
 
 - **Semantic View YAML**: Snowflake Semantic View YAML with logical tables, dimensions, time dimensions, facts, metrics, relationships, filters, and verified queries.
-- **Ontology Alignment**: FIBO class/property mappings, definitions used, unresolved concept ambiguity, and file paths when FIBO evidence was available.
+- **Ontology Alignment**: FIBO/Neptune class/property mappings, definitions used, unresolved concept ambiguity, and evidence paths or graph query references when ontology evidence was available.
 - **Cortex Analyst Instructions**: custom instructions as SQL or copy-ready text, separate from YAML.
 - **Verified Queries**: representative natural-language questions with SQL that proves expected usage.
 - **Generated SQL**: Snowflake-compatible SQL only when grounded in modeled metrics, dimensions, filters, relationships, and assumptions.
@@ -61,6 +62,8 @@ When a FIBO repository is available:
 
 If FIBO is not available locally, proceed with generic financial modeling and state that ontology mappings are unverified.
 
+If Neptune is available as an ontology service, use it for term resolution and GraphRAG context only. Neptune can enrich meaning, synonyms, hierarchy, and disambiguation; Snowflake remains the metric and SQL execution layer.
+
 ### 3. Classify Tables and Columns
 
 Classify each logical table as a business entity or event source. Prefer a simple star schema when possible.
@@ -80,6 +83,7 @@ Use ontology alignment to improve classification:
 - FIBO datatype properties often become dimensions, time dimensions, or facts depending on type and use.
 - FIBO object properties often inform Snowflake relationships or semantic descriptions.
 - FIBO named individuals can become enumerated values, sample values, or clarification vocabulary.
+- Neptune GraphRAG context can explain terms and retrieve related ontology concepts, but it must not create unmodeled metrics or warehouse joins.
 
 ### 4. Design Relationships
 
@@ -144,11 +148,24 @@ When the user asks for `Data Model -> Semantic Model -> Snowflake SQL`, generate
 
 Read `references/sql-generation-guardrails.md` and use `assets/templates/semantic-sql-request.md` for reusable prompts.
 
+### 9. Use Neptune and GraphRAG
+
+When Neptune is part of the architecture:
+
+- Use Neptune RDF/SPARQL as the ontology service of record for FIBO and internal vocabulary.
+- Use GraphRAG to retrieve definitions, synonyms, hierarchy, and related concepts before mapping a user question.
+- Route meaning/disambiguation questions to Neptune context; route numeric metric questions to Snowflake through the semantic model.
+- Do not query Neptune for AUM, exposure, balances, counts, or metric answers.
+- Do not infer Snowflake joins from Neptune ontology relationships unless the semantic model and warehouse keys support them.
+
+Read `references/neptune-ontology-layer.md` and `docs/neptune-semantic-model-architecture.md` for the architecture.
+
 ## References
 
 - Snowflake target format: `references/snowflake-semantic-views.md`
 - Conversion rules: `references/conversion-workflow.md`
 - FIBO ontology alignment: `references/fibo-ontology-alignment.md`
+- Neptune ontology layer: `references/neptune-ontology-layer.md`
 - Cortex Analyst instructions: `references/cortex-analyst-prompting.md`
 - SQL generation guardrails: `references/sql-generation-guardrails.md`
 - Cross-platform patterns: `references/platform-patterns.md`

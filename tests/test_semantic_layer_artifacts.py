@@ -11,6 +11,10 @@ CORTEX_SQL = EXAMPLE / "cortex-instructions.sql"
 ONTOLOGY = EXAMPLE / "ontology-alignment.md"
 GUARDRAILS = ROOT / "semantic-modeling" / "references" / "sql-generation-guardrails.md"
 SQL_PROMPT_TEMPLATE = ROOT / "semantic-modeling" / "assets" / "templates" / "semantic-sql-request.md"
+NEPTUNE_REF = ROOT / "semantic-modeling" / "references" / "neptune-ontology-layer.md"
+NEPTUNE_ARCH = ROOT / "docs" / "neptune-semantic-model-architecture.md"
+NEPTUNE_ROUTING = EXAMPLE / "neptune-graphrag-routing.md"
+SPARQL_LOOKUPS = EXAMPLE / "sparql-term-lookups.sparql"
 
 
 def read(path: Path) -> str:
@@ -141,6 +145,48 @@ class SemanticLayerArtifactTests(unittest.TestCase):
             "Provide a semantic mapping summary before the SQL.",
         ]:
             self.assertIn(required, template)
+
+    def test_neptune_reference_keeps_graph_and_metric_roles_separate(self):
+        neptune = read(NEPTUNE_REF)
+
+        for required in [
+            "Use Neptune as the ontology and GraphRAG context layer",
+            "Snowflake owns",
+            "Metric answers such as AUM, exposure, balances, market value",
+            "Never use GraphRAG context as proof of data availability.",
+            "Neptune cannot create a Snowflake join",
+            "Neptune cannot create a metric",
+            "Use Snowflake SQL for questions like",
+        ]:
+            self.assertIn(required, neptune)
+
+    def test_neptune_architecture_documents_inputs_processing_outputs(self):
+        architecture = read(NEPTUNE_ARCH)
+
+        for required in [
+            "## Inputs",
+            "## Processing Flow",
+            "## Outputs",
+            "Neptune is for meaning and disambiguation; Snowflake is for metrics.",
+            "Ontology object properties do not imply physical joins.",
+            "Missing semantic-model requirements should block SQL generation.",
+        ]:
+            self.assertIn(required, architecture)
+
+    def test_neptune_examples_include_routing_and_sparql(self):
+        routing = read(NEPTUNE_ROUTING)
+        sparql = read(SPARQL_LOOKUPS)
+
+        for required in [
+            "Meaning Before SQL",
+            "AUM by Account Group",
+            "Ontology Relationship Without Warehouse Join",
+            "do not invent a join",
+        ]:
+            self.assertIn(required, routing)
+
+        for required in ["SELECT ?term ?label ?definition", "issuer", "legal entity identifier", "rdfs:subClassOf+"]:
+            self.assertIn(required, sparql)
 
 
 if __name__ == "__main__":

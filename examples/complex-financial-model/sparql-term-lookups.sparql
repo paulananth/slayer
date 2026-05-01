@@ -1,0 +1,38 @@
+# Example Neptune SPARQL lookups for ontology/GraphRAG context.
+# These are illustrative and should be adapted to the actual loaded FIBO/internal ontology prefixes.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# 1. Resolve issuer-like terms.
+SELECT ?term ?label ?definition
+WHERE {
+  ?term rdfs:label ?label .
+  OPTIONAL { ?term skos:definition ?definition . }
+  FILTER(CONTAINS(LCASE(STR(?label)), "issuer"))
+}
+LIMIT 25
+
+# 2. Resolve LEI terms.
+SELECT ?term ?label ?definition
+WHERE {
+  ?term rdfs:label ?label .
+  OPTIONAL { ?term skos:definition ?definition . }
+  FILTER(
+    CONTAINS(LCASE(STR(?label)), "legal entity identifier")
+    || CONTAINS(LCASE(STR(?label)), "lei")
+  )
+}
+LIMIT 25
+
+# 3. Find hierarchy for security-like concepts.
+SELECT ?parent ?parentLabel
+WHERE {
+  ?term rdfs:label ?label .
+  FILTER(CONTAINS(LCASE(STR(?label)), "security"))
+  ?term rdfs:subClassOf+ ?parent .
+  OPTIONAL { ?parent rdfs:label ?parentLabel . }
+}
+LIMIT 50
+
