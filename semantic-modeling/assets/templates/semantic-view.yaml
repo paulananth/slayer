@@ -1,0 +1,72 @@
+name: <semantic_view_name>
+description: "<business description of the semantic view>"
+
+# Optional ontology alignment notes for generated artifacts:
+# - FIBO terms used:
+# - RDF files consulted:
+# - Mapping assumptions:
+
+tables:
+  - name: <logical_table_name>
+    description: "<business entity or event represented by this table>"
+    base_table:
+      database: <database>
+      schema: <schema>
+      table: <physical_table>
+    dimensions:
+      - name: <dimension_name>
+        synonyms: ["<synonym>"]
+        description: "<business meaning and usage>"
+        expr: <column_or_sql_expression>
+        data_type: <Snowflake data type>
+    time_dimensions:
+      - name: <time_dimension_name>
+        synonyms: ["<synonym>"]
+        description: "<date/time meaning, timezone, and calendar assumption>"
+        expr: <date_or_timestamp_expression>
+        data_type: <DATE_OR_TIMESTAMP_TYPE>
+    facts:
+      - name: <fact_name>
+        description: "<row-level quantitative meaning>"
+        expr: <numeric_expression>
+        data_type: NUMBER
+        access_modifier: public_access
+    metrics:
+      - name: <metric_name>
+        synonyms: ["<synonym>"]
+        description: "<aggregate business definition, including inclusions/exclusions>"
+        expr: <aggregate_expression>
+        access_modifier: public_access
+    filters:
+      - name: <filter_name>
+        synonyms: ["<synonym>"]
+        description: "<business meaning of reusable predicate>"
+        expr: "<boolean SQL expression>"
+
+relationships:
+  - name: <left_table>_to_<right_table>
+    left_table: <foreign_key_table>
+    right_table: <referenced_table>
+    relationship_columns:
+      - left_column: <foreign_key_column>
+        right_column: <primary_or_unique_key_column>
+
+metrics:
+  - name: <derived_metric_name>
+    synonyms: ["<synonym>"]
+    description: "<view-level metric definition>"
+    expr: <table.metric_expression>
+    access_modifier: public_access
+
+verified_queries:
+  - name: <query_name>
+    question: "<natural language question this SQL answers>"
+    sql: |
+      SELECT
+        <dimension>,
+        <metric>
+      FROM <semantic_view_name>
+      GROUP BY <dimension>
+      ORDER BY <metric> DESC
+      LIMIT 10
+    use_as_onboarding_question: true

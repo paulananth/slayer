@@ -1,0 +1,4 @@
+interface:
+  display_name: "Semantic Modeling"
+  short_description: "Build ontology-grounded Snowflake semantic views"
+  default_prompt: "Use $semantic-modeling to convert these tables and FIBO concepts into a Snowflake semantic view and Cortex Analyst prompt package."
