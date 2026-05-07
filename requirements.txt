@@ -1,0 +1,2 @@
+snowconn==3.14.2
+pyyaml>=6.0

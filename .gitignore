@@ -1,1 +1,5 @@
 .codex
+generated/*
+!generated/.gitkeep
+__pycache__/
+*.pyc
