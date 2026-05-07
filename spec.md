@@ -208,6 +208,7 @@ Outputs:
 - `semantic-modeling/assets/templates/`: reusable markdown, YAML, and SQL templates.
 - `tools/schema_introspector.py`: Snowflake metadata extraction into `ColumnRecord` objects.
 - `tools/column_describer.py`: deterministic column classification, descriptions, synonyms, and metric derivation.
+- `tools/relationship_inferencer.py`: shared relationship-inference routine for warehouse tables and imported semantic models.
 - `tools/semantic_brainstormer.py`: CLI for generating starter Snowflake Semantic View YAML and SQL.
 - `tools/pbixray_semantic_converter.py`: CLI for converting PBIX/PowerPivot semantic models into Snowflake Semantic View YAML, SQL, and conversion notes.
 - `tools/snowconn_client.py`: Snow CLI profile loader and SnowConn connection wrapper.
@@ -246,6 +247,8 @@ Outputs:
 - The right side should normally be the referenced entity side.
 - Role-playing relationships must be named by business role, such as issuer, obligor, buyer, seller, broker, custodian, or counterparty.
 - Many-to-many paths must require allocation, effective dating, distinct logic, or explicit model-gap handling.
+- Relationship inference must prefer explicit active source-model relationships, score inferred candidates, and skip ambiguous ties.
+- Inactive relationships, missing-table relationships, missing-column relationships, and many-to-many source relationships must be reported as manual-review warnings.
 
 ### Snowflake Semantic View YAML
 

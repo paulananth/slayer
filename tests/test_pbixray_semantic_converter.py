@@ -93,6 +93,29 @@ class PbixraySemanticConverterTests(unittest.TestCase):
                 root_table="Missing",
             )
 
+    def test_infers_missing_pbix_relationships_from_model_keys(self):
+        result = convert_powerbi_model(
+            tables=["Sales", "Customer"],
+            columns=[
+                PbiColumn("Sales", "CustomerKey", "int64", is_hidden=True),
+                PbiColumn("Sales", "NetAmount", "float64"),
+                PbiColumn("Customer", "CustomerKey", "int64", is_hidden=True),
+                PbiColumn("Customer", "CustomerName", "object"),
+            ],
+            relationships=[],
+            measures=[PbiMeasure("Sales", "Total Sales", "SUM(Sales[NetAmount])")],
+            extras={},
+            snowflake_database="ANALYTICS",
+            snowflake_schema="MART_SALES",
+            view_name="inferred_sales_view",
+        )
+
+        doc = yaml.safe_load(result.yaml_content)
+        relationship_names = {rel["name"] for rel in doc["relationships"]}
+
+        self.assertIn("sales_to_customer", relationship_names)
+        self.assertIn("Inferred relationship sales.customer_key", result.notes_content)
+
 
 if __name__ == "__main__":
     unittest.main()

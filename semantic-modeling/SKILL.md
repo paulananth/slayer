@@ -20,10 +20,11 @@ For Power BI `.pbix` or PowerPivot `.xlsx` files, use `tools/pbixray_semantic_co
 3. Read `references/snowflake-semantic-views.md` before emitting Snowflake YAML or SQL.
 4. For financial concepts, read `references/fibo-ontology-alignment.md` before naming entities, metrics, relationships, or prompts.
 5. For Neptune/GraphRAG ontology context, read `references/neptune-ontology-layer.md` before adding graph-derived definitions, synonyms, or disambiguation.
-6. Read `references/cortex-analyst-prompting.md` before writing custom instructions, synonyms, descriptions, or verified queries.
-7. For semantic-model-to-SQL requests, read `references/sql-generation-guardrails.md` before writing Snowflake SQL.
-8. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
-9. For PBIX conversion, use `tools/pbixray_semantic_converter.py` and require Snowflake database/schema plus optional `--root-table` and `--table-map` values.
+6. Read `references/relationship-inference.md` before inferring joins across tables or imported semantic models.
+7. Read `references/cortex-analyst-prompting.md` before writing custom instructions, synonyms, descriptions, or verified queries.
+8. For semantic-model-to-SQL requests, read `references/sql-generation-guardrails.md` before writing Snowflake SQL.
+9. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
+10. For PBIX conversion, use `tools/pbixray_semantic_converter.py` and require Snowflake database/schema plus optional `--root-table` and `--table-map` values.
 
 ## Required Output
 
@@ -168,6 +169,7 @@ Read `references/neptune-ontology-layer.md` and `docs/neptune-semantic-model-arc
 
 - Snowflake target format: `references/snowflake-semantic-views.md`
 - Conversion rules: `references/conversion-workflow.md`
+- Relationship inference: `references/relationship-inference.md`
 - FIBO ontology alignment: `references/fibo-ontology-alignment.md`
 - Neptune ontology layer: `references/neptune-ontology-layer.md`
 - Cortex Analyst instructions: `references/cortex-analyst-prompting.md`

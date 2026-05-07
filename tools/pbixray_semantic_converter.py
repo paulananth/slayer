@@ -38,6 +38,12 @@ from tools.column_describer import (
     describe_column,
     is_snapshot_table,
 )
+from tools.relationship_inferencer import (
+    ExplicitRelationship,
+    InferenceColumn,
+    InferenceTable,
+    infer_relationships,
+)
 from tools.schema_introspector import ColumnRecord
 
 
@@ -100,7 +106,7 @@ class SemanticRelationship:
     right_table: str
     left_column: str
     right_column: str
-    source: PbiRelationship
+    source: PbiRelationship | None = None
 
 
 @dataclass
@@ -582,12 +588,13 @@ def _build_logical_tables(
 
         for pbi_col in cols:
             is_key = _is_relationship_key(relationships, table, pbi_col.column)
-            if pbi_col.is_hidden and not include_hidden and not is_key:
+            semantic_column = _snake(pbi_col.column)
+            is_key_like = semantic_column == "lei" or semantic_column.endswith(("_id", "_key"))
+            if pbi_col.is_hidden and not include_hidden and not (is_key or is_key_like):
                 skipped.append(pbi_col.column)
                 continue
 
             sf_type = _snowflake_type(pbi_col.pandas_type, pbi_col.dax_type, pbi_col.column)
-            semantic_column = _snake(pbi_col.column)
             unique = any(
                 _is_relationship_one_side(rel, table, pbi_col.column)
                 for rel in relationships
@@ -659,49 +666,63 @@ def _build_logical_tables(
 
 def _build_relationships(
     relationships: list[PbiRelationship],
-    logical_names: dict[str, str],
-    field_lookup: dict[tuple[str, str], str],
+    logical_tables: list[LogicalTable],
 ) -> tuple[list[SemanticRelationship], list[str]]:
-    result: list[SemanticRelationship] = []
-    warnings: list[str] = []
-    seen: set[tuple[str, str, str, str]] = set()
-    for rel in relationships:
-        if not rel.is_active:
-            warnings.append(
-                f"Skipped inactive relationship {rel.from_table}.{rel.from_column} -> "
-                f"{rel.to_table}.{rel.to_column}."
+    inference_tables = []
+    for table in logical_tables:
+        columns = []
+        for field in table.dimensions + table.time_dimensions + table.facts:
+            columns.append(
+                InferenceColumn(
+                    name=field["name"],
+                    physical_name=field["expr"],
+                    data_type=field.get("data_type", ""),
+                    is_unique=bool(field.get("unique")),
+                    is_hidden=field.get("access_modifier") == "private_access",
+                )
             )
-            continue
-        oriented = _relationship_orientation(rel)
-        if oriented is None:
-            warnings.append(
-                f"Skipped many-to-many relationship {rel.from_table}.{rel.from_column} -> "
-                f"{rel.to_table}.{rel.to_column}; add allocation or bridge semantics before using it."
-            )
-            continue
-        left_table, left_col, right_table, right_col = oriented
-        if left_table not in logical_names or right_table not in logical_names:
-            warnings.append(
-                f"Skipped relationship {left_table}.{left_col} -> {right_table}.{right_col}; "
-                "one or both tables were not modeled."
-            )
-            continue
-        key = (left_table, left_col, right_table, right_col)
-        if key in seen:
-            continue
-        seen.add(key)
-        role = _snake(right_table)
-        name = f"{logical_names[left_table]}_to_{role}"
-        result.append(
-            SemanticRelationship(
-                name=name,
-                left_table=logical_names[left_table],
-                right_table=logical_names[right_table],
-                left_column=field_lookup.get((left_table, left_col), _snake(left_col)),
-                right_column=field_lookup.get((right_table, right_col), _snake(right_col)),
-                source=rel,
+        inference_tables.append(
+            InferenceTable(
+                logical_name=table.logical_name,
+                source_name=table.powerbi_table,
+                physical_name=table.physical_table,
+                columns=columns,
             )
         )
+
+    explicit_relationships = [
+        ExplicitRelationship(
+            from_table=rel.from_table,
+            from_column=rel.from_column,
+            to_table=rel.to_table,
+            to_column=rel.to_column,
+            is_active=rel.is_active,
+            cardinality=rel.cardinality,
+            from_key_count=rel.from_key_count,
+            to_key_count=rel.to_key_count,
+            source="Power BI",
+        )
+        for rel in relationships
+    ]
+    inference = infer_relationships(inference_tables, explicit_relationships)
+    result = [
+        SemanticRelationship(
+            name=rel.name,
+            left_table=rel.left_table,
+            right_table=rel.right_table,
+            left_column=rel.left_column,
+            right_column=rel.right_column,
+            source=None,
+        )
+        for rel in inference.relationships
+    ]
+    warnings = inference.warnings[:]
+    for rel in inference.relationships:
+        if rel.source != "explicit":
+            warnings.append(
+                f"Inferred relationship {rel.left_table}.{rel.left_column} -> "
+                f"{rel.right_table}.{rel.right_column} with confidence {rel.confidence}: {rel.reason}."
+            )
     return result, warnings
 
 
@@ -1038,7 +1059,7 @@ def convert_powerbi_model(
         include_hidden,
     )
     semantic_relationships, relationship_warnings = _build_relationships(
-        relationships, logical_names, field_lookup
+        relationships, logical_tables
     )
     view_metrics, measure_warnings = _attach_powerbi_measures(
         logical_tables, logical_names, field_lookup, measures

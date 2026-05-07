@@ -34,6 +34,11 @@ from tools.column_describer import (
     describe_column,
     is_snapshot_table,
 )
+from tools.relationship_inferencer import (
+    InferenceColumn,
+    InferenceTable,
+    infer_relationships,
+)
 from tools.schema_introspector import ColumnRecord, introspect_schemas
 from tools.snowconn_client import get_connection
 
@@ -210,94 +215,47 @@ def _group_by_table(records: list[ColumnRecord]) -> dict[tuple, list[ColumnRecor
 
 # ── Relationship inference ────────────────────────────────────────────────────
 
-def _infer_relationships(tables: list[LogicalTable]) -> list[Relationship]:
-    rels: list[Relationship] = []
-    seen: set[tuple] = set()
-
-    def add(rel: Relationship) -> None:
-        key = (rel.left_table, rel.right_table, rel.left_column, rel.right_column)
-        if key not in seen:
-            seen.add(key)
-            rels.append(rel)
-
-    # Build index: column_name_upper → list of tables that have it as unique
-    unique_index: dict[str, list[LogicalTable]] = defaultdict(list)
-    for t in tables:
-        for dc in t.dimensions:
-            if dc.is_unique:
-                unique_index[dc.column.upper()].append(t)
-
-    # Pass 1: LEI role-playing pattern
-    # Find tables with a column named exactly "LEI" that is unique
-    lei_tables = [t for t in tables if any(
-        dc.column.upper() == "LEI" and dc.is_unique for dc in t.dimensions
-    )]
-    if not lei_tables:
-        # Fallback: any table with a dimension named "lei" (even if not marked unique)
-        lei_tables = [t for t in tables if any(dc.name == "lei" for dc in t.dimensions)]
-
-    for left in tables:
-        for dc in left.dimensions:
-            col_lower = dc.column.lower()
-            if col_lower.endswith("_lei") and col_lower != "lei":
-                role = col_lower[:-4]  # strip "_lei"
-                for right in lei_tables:
-                    if right.logical_name == left.logical_name:
-                        continue
-                    rel_name = f"{left.logical_name}_to_{_pluralize(role)}"
-                    add(Relationship(
-                        name=rel_name,
-                        left_table=left.logical_name,
-                        right_table=right.logical_name,
-                        left_column=dc.column,
-                        right_column="LEI",
-                    ))
-
-    # Pass 2: generic _id FK matching
-    logical_name_index: dict[str, LogicalTable] = {t.logical_name: t for t in tables}
-
-    for left in tables:
-        for dc in left.dimensions:
-            col_lower = dc.column.lower()
-            if not col_lower.endswith("_id"):
-                continue
-            prefix = col_lower[:-3]  # strip "_id"
-            # Try singular then plural
-            candidates = [
-                logical_name_index.get(prefix),
-                logical_name_index.get(_pluralize(prefix)),
-            ]
-            for right in candidates:
-                if right is None or right.logical_name == left.logical_name:
-                    continue
-                # Confirm right table has a matching column
-                right_col = next(
-                    (d for d in right.dimensions if d.column.lower() == col_lower),
-                    None,
+def _relationship_inference_tables(tables: list[LogicalTable]) -> list[InferenceTable]:
+    return [
+        InferenceTable(
+            logical_name=t.logical_name,
+            source_name=t.physical_table,
+            physical_name=t.physical_table,
+            columns=[
+                InferenceColumn(
+                    name=dc.name,
+                    physical_name=dc.column,
+                    data_type=dc.data_type,
+                    is_unique=dc.is_unique,
+                    classification=dc.classification,
                 )
-                if right_col is None:
-                    # Accept if right table has any column ending in _id that is unique
-                    right_col = next(
-                        (d for d in right.dimensions if d.column.lower() == col_lower and d.is_unique),
-                        None,
-                    )
-                if right_col is None:
-                    # Loose match: right table has same column name (case-insensitive)
-                    right_col = next(
-                        (d for d in right.dimensions if d.column.upper() == dc.column.upper()),
-                        None,
-                    )
-                if right_col is not None:
-                    add(Relationship(
-                        name=f"{left.logical_name}_to_{right.logical_name}",
-                        left_table=left.logical_name,
-                        right_table=right.logical_name,
-                        left_column=dc.column,
-                        right_column=right_col.column,
-                    ))
-                break
+                for dc in t.dimensions
+            ],
+        )
+        for t in tables
+    ]
 
-    return rels
+
+def _infer_relationships_with_warnings(
+    tables: list[LogicalTable],
+) -> tuple[list[Relationship], list[str]]:
+    result = infer_relationships(_relationship_inference_tables(tables))
+    relationships = [
+        Relationship(
+            name=rel.name,
+            left_table=rel.left_table,
+            right_table=rel.right_table,
+            left_column=rel.left_column,
+            right_column=rel.right_column,
+        )
+        for rel in result.relationships
+    ]
+    return relationships, result.warnings
+
+
+def _infer_relationships(tables: list[LogicalTable]) -> list[Relationship]:
+    relationships, _ = _infer_relationships_with_warnings(tables)
+    return relationships
 
 
 # ── View-level derived metrics ────────────────────────────────────────────────
@@ -745,11 +703,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     # ── Infer relationships ───────────────────────────────────────────────────
-    relationships = _infer_relationships(tables)
+    relationships, relationship_warnings = _infer_relationships_with_warnings(tables)
     if args.verbose:
         for r in relationships:
             print(f"  [rel] {r.name}: {r.left_table}.{r.left_column} → "
                   f"{r.right_table}.{r.right_column}", file=sys.stderr)
+        for warning in relationship_warnings:
+            print(f"  [rel-warn] {warning}", file=sys.stderr)
 
     # ── View-level metrics ────────────────────────────────────────────────────
     view_metrics = _derive_view_metrics(tables)

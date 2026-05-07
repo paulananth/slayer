@@ -68,6 +68,7 @@ Special rules:
 | One table | Build a simple semantic view with metrics, dimensions, filters, and verified queries. |
 | Fact and dimension tables | Build a star-schema semantic view with relationships. |
 | Normalized product/customer/account hierarchy | Build a snowflake-schema semantic view and document join paths. |
+| Tables without declared foreign keys | Infer scored relationship candidates and skip ambiguous paths for manual review. |
 | Daily balances, positions, inventory, prices, rates, or exposure | Model non-additive metrics safely with explicit date basis. |
 | Financial tables | Add FIBO-style meanings, synonyms, and ambiguity rules. |
 | Neptune or GraphRAG | Use ontology context for meaning and disambiguation, not metric execution. |
@@ -92,6 +93,7 @@ The installed test matrix explicitly covers the following 50 use cases. These ca
 | 5 | Degenerate dimensions | IDs like order number or invoice number live directly in the fact table. | "Expose useful order and invoice identifiers without creating extra tables." | Identifier dimensions for filtering or drill-through, not metrics. |
 | 6 | Partial schema input | You only know table names and some columns. | "Use the intake checklist and make clear assumptions." | Draft semantic model plus questions and assumptions. |
 | 7 | Missing primary keys | Tables do not declare PK/FK constraints. | "Infer candidate relationships but mark assumptions." | Conservative relationships and key-confidence notes. |
+| 7a | Relationship inference across models | Imported semantic models or warehouse schemas have incomplete joins. | "Use relationship inference and show skipped ambiguous candidates." | Scored candidates, active explicit relationships, role-playing relationships, and manual-review warnings. |
 
 ### B. Model Snapshot And Time-Sensitive Data
 
@@ -185,7 +187,7 @@ What it does:
 - connects using a Snow CLI profile
 - reads table and column metadata
 - classifies fields by datatype and naming patterns
-- infers simple relationships
+- infers scored relationships with ambiguity warnings
 - creates starter Snowflake Semantic View YAML
 - creates SQL with verify-only validation first
 
