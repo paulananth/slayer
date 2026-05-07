@@ -131,6 +131,10 @@ Official sources:
 - https://learn.microsoft.com/en-us/power-bi/connect-data/service-datasets-understand
 - https://learn.microsoft.com/en-us/power-bi/personas/semantic-model-designer/
 
+PBIX parser:
+
+- `pbixray` exposes PBIX tables, schema, relationships, DAX measures, calculated columns/tables, Power Query, RLS, and TMSCHEMA metadata.
+
 Useful patterns:
 
 - Tables, relationships, DAX measures, hierarchies, calculation groups, RLS, and storage modes.
@@ -141,6 +145,10 @@ Map to Snowflake:
 - Tables and relationships map to logical tables and relationships.
 - DAX measures need SQL metric equivalents; do not transliterate blindly.
 - RLS requires explicit Snowflake security design.
+- Use `tools/pbixray_semantic_converter.py` for PBIX files when the physical Snowflake database/schema and optional table mappings are known.
+- Select a root/fact table from active relationships, measure ownership, numeric fact columns, and table-name hints; override with `--root-table` when the business model has a known root.
+- Translate only common aggregate DAX patterns automatically, such as `SUM(Table[Column])`, `COUNTROWS(Table)`, `DISTINCTCOUNT(Table[Column])`, and simple `DIVIDE([measure], [measure])`.
+- Document unsupported DAX, inactive relationships, many-to-many paths, calculated tables, calculated columns, and RLS in conversion notes instead of creating unsafe Snowflake metrics.
 
 ## Cube
 

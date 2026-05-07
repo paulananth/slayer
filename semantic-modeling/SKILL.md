@@ -11,6 +11,8 @@ For financial-services data, combine warehouse metadata with FIBO ontology evide
 
 Snowflake Semantic Views are the default target. Treat legacy Cortex Analyst semantic model YAML and other semantic-layer formats as source or comparison material unless the user explicitly asks for a different target.
 
+For Power BI `.pbix` or PowerPivot `.xlsx` files, use `tools/pbixray_semantic_converter.py`. It uses `pbixray` to extract the semantic model, chooses or accepts a root/fact table, maps active relationships, translates only safe aggregate DAX patterns, and records unsupported DAX/RLS/calculated-model caveats in conversion notes.
+
 ## Quick Start
 
 1. Identify the input shape: single table, star schema, snowflake schema, existing semantic model, or partial schema notes.
@@ -21,6 +23,7 @@ Snowflake Semantic Views are the default target. Treat legacy Cortex Analyst sem
 6. Read `references/cortex-analyst-prompting.md` before writing custom instructions, synonyms, descriptions, or verified queries.
 7. For semantic-model-to-SQL requests, read `references/sql-generation-guardrails.md` before writing Snowflake SQL.
 8. Use templates in `assets/templates/` for final deliverables when the user asks for files or reusable artifacts.
+9. For PBIX conversion, use `tools/pbixray_semantic_converter.py` and require Snowflake database/schema plus optional `--root-table` and `--table-map` values.
 
 ## Required Output
 
@@ -33,6 +36,7 @@ For a table-to-Snowflake conversion, produce these sections unless the user asks
 - **Generated SQL**: Snowflake-compatible SQL only when grounded in modeled metrics, dimensions, filters, relationships, and assumptions.
 - **Assumptions**: grain, keys, relationships, metric definitions, time zones, filters, and data gaps that were inferred.
 - **Validation**: the Snowflake verify-only command to run when a Snowflake connection is available.
+- **Conversion Notes**: for PBIX inputs, root table selection, 5-Whys decision summary, unsupported DAX, RLS, calculated table/column, inactive relationship, and many-to-many caveats.
 
 ## Modeling Workflow
 

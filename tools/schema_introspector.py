@@ -6,9 +6,12 @@ of ColumnRecord dataclasses — one per (schema, table, column) tuple.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import Any, Sequence
 
-from snowconn import SnowConn
+try:
+    from snowconn import SnowConn
+except ImportError:
+    SnowConn = Any
 
 
 @dataclass
